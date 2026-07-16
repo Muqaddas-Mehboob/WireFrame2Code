@@ -1,5 +1,6 @@
 "use client";
 
+import { Textarea } from "@/components/ui/textarea";
 import { CloudUpload, X } from "lucide-react";
 import Image from "next/image";
 import React, { ChangeEvent, useState } from "react";
@@ -17,7 +18,7 @@ function ImageUpload() {
   };
 
   return (
-    <div className="mt-10">
+    <div className="mt-20">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {!previewImage ? (
           <div className="p-7 border border-dashed rounded-md shadow-md">
@@ -62,8 +63,9 @@ function ImageUpload() {
           </div>
         )}
 
-        <div>
-          User input
+        <div className="p-7 border border-dashed rounded-lg shadow-md">
+          <h2 className="font-bold text-lg">Enter description about your Webpage</h2>
+          <Textarea className="mt-3 h-[200px]" placeholder="Write about your webpage" />
         </div>
       </div>
     </div>
