@@ -11,39 +11,33 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react"
+import { Calendar, Circle, CircleDollarSign, CircleDollarSignIcon, Home, Wand, WandSparkles } from "lucide-react"
 import Image from 'next/image'
 import { useParams, usePathname } from 'next/navigation'
+import { log } from 'console'
 
 const items = [
     {
-        title: "Home",
+        title: "Workspace",
         url: "/dashboard",
         icon: Home,
     },
     {
-        title: "Inbox",
-        url: "#",
-        icon: Inbox,
+        title: "Design",
+        url: "/design",
+        icon: WandSparkles,
     },
     {
-        title: "Calendar",
-        url: "#",
-        icon: Calendar,
-    },
-    {
-        title: "Search",
-        url: "#",
-        icon: Search,
-    },
-    {
-        title: "Settings",
-        url: "#",
-        icon: Settings,
+        title: "Credits",
+        url: "/credits",
+        icon: CircleDollarSign
+        ,
     },
 ]
 
 export function AppSidebar() {
+    const pathname = usePathname();
+    console.log(pathname);
     const path = usePathname();
     return (
         <Sidebar>
@@ -60,16 +54,12 @@ export function AppSidebar() {
                     <SidebarGroupContent>
                         <SidebarMenu className='mt-5'>
                             {items.map((item, index) => (
-                                // <SidebarMenuItem key={item.title} className='p-2'>
-                                //     <SidebarMenuButton asChild className=''>
                                 <a href={item.url} key={index} className={`p-2 text-lg flex gap-2 items-center
                                  hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg
-                                 ${path == item.url && 'bg-gray-100 dark:bg-zinc-800'}`}>
+                                 ${item.url == path && 'bg-gray-200 dark:bg-zinc-800'}`}>
                                     <item.icon className='h-5 w-5' />
                                     <span>{item.title}</span>
                                 </a>
-                                //     </SidebarMenuButton>
-                                // </SidebarMenuItem>
                             ))}
                         </SidebarMenu>
                     </SidebarGroupContent>
