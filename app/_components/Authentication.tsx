@@ -1,33 +1,36 @@
 "use client"
 import { auth } from '@/configs/firebaseConfig';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
 import React from 'react'
 
-interface AuthenticationProps {
-    children: React.ReactNode;
-    redirectTo?: string;
-}
-
-function Authentication({ children, redirectTo }: AuthenticationProps) {
-    const router = useRouter();
+function Authentication({ children }: any) {
     const provider = new GoogleAuthProvider();
 
     const onButtonPress = () => {
         signInWithPopup(auth, provider)
             .then((result) => {
+                // This gives you a Google Access Token. You can use it to access the Google API.
+                const credential: any = GoogleAuthProvider.credentialFromResult(result);
+                const token = credential.accessToken;
+                // The signed-in user info.
                 const user = result.user;
                 console.log(user);
-                if (redirectTo) {
-                    router.replace(redirectTo);
-                }
+                // IdP data available using getAdditionalUserInfo(result)
+                // ...
             }).catch((error) => {
-                console.error(error);
+                // Handle Errors here.
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                // The email of the user's account used.
+                const email = error.customData.email;
+                // The AuthCredential type that was used.
+                const credential = GoogleAuthProvider.credentialFromError(error);
+                // ...
             });
     }
     return (
         <div>
-            <div onClick={onButtonPress} className="cursor-pointer">
+            <div onClick={onButtonPress} className='cursor-pointer'>
                 {children}
             </div>
         </div>
@@ -35,35 +38,3 @@ function Authentication({ children, redirectTo }: AuthenticationProps) {
 }
 
 export default Authentication
-
-// "use client";
-
-// import { auth } from "@/configs/firebaseConfig";
-// import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-
-// export default function Authentication({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) {
-//   const provider = new GoogleAuthProvider();
-
-//   const login = async () => {
-//     try {
-//       const result = await signInWithPopup(auth, provider);
-
-//       console.log(result.user);
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   return (
-//     <div
-//       onClick={login}
-//       className="cursor-pointer"
-//     >
-//       {children}
-//     </div>
-//   );
-// }

@@ -60,4 +60,3 @@ export const useAuthContext = (): AuthContextType => {
 };
 
 export default Provider
-
