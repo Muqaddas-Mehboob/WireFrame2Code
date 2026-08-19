@@ -18,9 +18,33 @@ import {
 
 function ImageUpload() {
   const AIModelList = [
-    { name: "Google Gemini", value: "google-gemini", icon: "/gemini.jpg" },
-    { name: "Llama By Meta", value: "llama-meta", icon: "/meta.jpg" },
-    { name: "Deepseek", value: "deepseek", icon: "/deepseek.jpg" },
+    { name: "Google Gemini", 
+      value: "google-gemini", 
+      icon: "/gemini.jpg",
+      modelName: "google/gemma-4-31b-it:free"
+    },
+    { 
+      name: "Llama By Meta", 
+      value: "llama-meta", 
+      icon: "/meta.jpg", 
+      modelName: "google/gemma-4-31b-it:free" 
+    },
+    { 
+      name: "Deepseek", 
+      value: "deepseek", 
+      icon: "/deepseek.jpg", 
+      modelName: "google/gemma-4-31b-it:free" },
+    // { 
+    //   name: "Llama By Meta", 
+    //   value: "llama-meta", 
+    //   icon: "/meta.jpg", 
+    //   modelName: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free" 
+    // },
+    // { 
+    //   name: "Deepseek", 
+    //   value: "deepseek", 
+    //   icon: "/deepseek.jpg", 
+    //   modelName: "cohere/north-mini-code:free" },
   ];
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
