@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CloudUpload, CodeXml, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import React, { ChangeEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import {
   Select,
   SelectContent,
@@ -27,7 +29,8 @@ function ImageUpload() {
   const [model, setModel] = useState<string | null>(null);
   const [description, setDescription] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const uploadToCloudinary = async (file: File) => {
     setUploading(true);
@@ -36,7 +39,7 @@ function ImageUpload() {
       formData.append("file", file);
       formData.append(
         "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!,
       );
 
       const res = await fetch(
@@ -44,7 +47,7 @@ function ImageUpload() {
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Upload failed");
@@ -113,19 +116,25 @@ function ImageUpload() {
 
     setError(null);
 
+    let record: { id: string } | null = null;
+
     try {
-      setSubmitting(true);
+      setLoading(true);
 
-      const record = await saveRecord(uploadedUrl!);
-
+      record = await saveRecord(uploadedUrl!);
       console.log("Record saved:", record);
-
-      // next: call /api/generate with record.id to trigger AI code generation
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while saving your request. Please try again.");
+      setError(
+        "Something went wrong while saving your request. Please try again.",
+      );
     } finally {
-      setSubmitting(false);
+      setLoading(false);
+    }
+
+    // only navigate if the save actually succeeded
+    if (record) {
+      router.push(`/view-code/${record.id}`);
     }
   };
 
@@ -225,15 +234,15 @@ function ImageUpload() {
       <div className="flex items-center justify-center mt-10">
         <Button
           className="font-semibold text-lg px-5 py-5 flex items-center gap-2"
-          disabled={uploading || submitting}
+          disabled={uploading || loading}
           onClick={handleConvertToCode}
         >
-          {submitting ? (
+          {loading ? (
             <Loader2 className="animate-spin" size={20} />
           ) : (
             <CodeXml />
           )}
-          {submitting ? "Processing..." : "Convert to Code"}
+          {loading ? "Processing..." : "Convert to Code"}
         </Button>
       </div>
     </div>
