@@ -14,7 +14,6 @@ export const wireframeRecords = pgTable("wireframe_records", {
   userDescription: text("user_description"),
   aiModel: text("ai_model"),
   generatedCode: text("generated_code"),
-  code: json(),
   status: text("status").default("pending"), // pending | processing | completed | failed
   createdAt: timestamp("created_at").defaultNow(),
 });
