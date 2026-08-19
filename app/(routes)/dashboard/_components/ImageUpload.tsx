@@ -21,12 +21,13 @@ function ImageUpload() {
     { name: "Deepseek", value: "deepseek", icon: "/deepseek.jpg" },
   ];
 
-  const [previewImage, setPreviewImage] = useState<string | null>(null); // local preview
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // Cloudinary URL
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [model, setModel] = useState<string | null>(null);
   const [description, setDescription] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const uploadToCloudinary = async (file: File) => {
     setUploading(true);
@@ -35,7 +36,7 @@ function ImageUpload() {
       formData.append("file", file);
       formData.append(
         "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!,
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
       );
 
       const res = await fetch(
@@ -43,14 +44,14 @@ function ImageUpload() {
         {
           method: "POST",
           body: formData,
-        },
+        }
       );
 
       if (!res.ok) throw new Error("Upload failed");
 
       const data = await res.json();
-      setUploadedUrl(data.secure_url); // <-- this is the URL you store in your DB
-      setError(null); // clear error once image is successfully uploaded
+      setUploadedUrl(data.secure_url);
+      setError(null);
     } catch (err) {
       console.error(err);
       setError("Image upload failed. Please try again.");
@@ -63,11 +64,9 @@ function ImageUpload() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // instant local preview
     const imageUrl = URL.createObjectURL(file);
     setPreviewImage(imageUrl);
 
-    // upload in background
     uploadToCloudinary(file);
   };
 
@@ -76,12 +75,29 @@ function ImageUpload() {
     setUploadedUrl(null);
   };
 
-  const handleConvertToCode = () => {
+  const saveRecord = async (imageUrl: string) => {
+    const res = await fetch("/api/wireframe-2-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageUrl,
+        userDescription: description,
+        aiModel: model,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to save record");
+
+    const record = await res.json();
+    return record; // includes record.id, needed for the generate-code step
+  };
+
+  const handleConvertToCode = async () => {
     const missingFields: string[] = [];
 
-    if (!uploadedUrl) missingFields.push("Image");
+    if (!uploadedUrl) missingFields.push("image");
     if (!model) missingFields.push("AI model");
-    if (!description.trim()) missingFields.push("Description");
+    if (!description.trim()) missingFields.push("description");
 
     if (missingFields.length > 0) {
       const fieldList =
@@ -91,13 +107,26 @@ function ImageUpload() {
             " and " +
             missingFields[missingFields.length - 1];
 
-      setError(`${fieldList} is missing.`);
+      setError(`Please provide the following: ${fieldList}.`);
       return;
     }
 
     setError(null);
-    // TODO: call your /api/records then /api/generate flow here
-    console.log({ uploadedUrl, model, description });
+
+    try {
+      setSubmitting(true);
+
+      const record = await saveRecord(uploadedUrl!);
+
+      console.log("Record saved:", record);
+
+      // next: call /api/generate with record.id to trigger AI code generation
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while saving your request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -196,11 +225,15 @@ function ImageUpload() {
       <div className="flex items-center justify-center mt-10">
         <Button
           className="font-semibold text-lg px-5 py-5 flex items-center gap-2"
-          disabled={uploading}
+          disabled={uploading || submitting}
           onClick={handleConvertToCode}
         >
-          <CodeXml />
-          Convert to Code
+          {submitting ? (
+            <Loader2 className="animate-spin" size={20} />
+          ) : (
+            <CodeXml />
+          )}
+          {submitting ? "Processing..." : "Convert to Code"}
         </Button>
       </div>
     </div>
