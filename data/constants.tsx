@@ -12,22 +12,28 @@ export default {
       `,
     AIModelList : [
     {
-      name: "Gemini 3.1 Flash Lite",
-      value: "gemini-3.1-flash-lite",
+      name: "Gemini 3.7 Flash",
+      value: "google/gemini-3.7-flash",
       icon: "/gemini.jpg",
-      modelName: "gemini-3.1-flash-lite",
+      modelName: "google/gemini-3.7-flash",
     },
     {
-      name: "Claude Sonnet 4.5",
-      value: "claude-sonnet-4-5",
+      name: "Claude Sonnet 5",
+      value: "anthropic/claude-sonnet-5",
       icon: "/meta.jpg",
-      modelName: "claude-sonnet-4-5",
+      modelName: "anthropic/claude-sonnet-5",
+    },
+    {
+      name: "DeepSeek V4 Flash Vision",
+      value: "deepseek/deepseek-v4-flash-vision-exp",
+      icon: "/deepseek.jpg",
+      modelName: "deepseek/deepseek-v4-flash-vision-exp",
     },
     {
       name: "GPT-5.6 Luna",
-      value: "gpt-5.6-luna",
+      value: "openai/gpt-5.6-luna",
       icon: "/deepseek.jpg",
-      modelName: "gpt-5.6-luna",
+      modelName: "openai/gpt-5.6-luna",
     },
     // { 
     //   name: "Llama By Meta", 

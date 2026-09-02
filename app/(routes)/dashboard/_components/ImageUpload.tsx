@@ -14,37 +14,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-declare global {
-  interface Window {
-    puter: any;
-  }
-}
+import {
+  DEFAULT_VISION_MODEL,
+  extractPuterContent,
+  formatPuterError,
+  resolvePuterModelId,
+  STAGE2_MODEL,
+  SUPPORTED_VISION_MODEL_IDS,
+  VISION_MODELS,
+} from "@/lib/puter-ai";
 
 function ImageUpload() {
   const router = useRouter();
 
-  const AIModelList = [
-    {
-      name: "Gemini 3.1 Flash Lite",
-      value: "gemini-3.1-flash-lite",
-      icon: "/gemini.jpg",
-    },
-    {
-      name: "Claude Sonnet 4.5",
-      value: "claude-sonnet-4-5",
-      icon: "/meta.jpg",
-    },
-    { name: "GPT-5.6 Luna", value: "gpt-5.6-luna", icon: "/deepseek.jpg" },
-  ];
-
-  const supportedPuterModels = new Set([
-    "gemini-3.1-flash-lite",
-    "claude-sonnet-4-5",
-    "gpt-5.6-luna",
-  ]);
-
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [model, setModel] = useState<string | null>(null);
@@ -62,7 +46,7 @@ function ImageUpload() {
       formData.append("file", file);
       formData.append(
         "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!,
       );
       formData.append("public_id", id);
 
@@ -71,7 +55,7 @@ function ImageUpload() {
         {
           method: "POST",
           body: formData,
-        }
+        },
       );
 
       const data = await res.json();
@@ -87,7 +71,9 @@ function ImageUpload() {
     } catch (err) {
       console.error("[Upload] Failed:", err);
       setError(
-        err instanceof Error ? err.message : "Image upload failed. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Image upload failed. Please try again.",
       );
     } finally {
       setUploading(false);
@@ -104,6 +90,7 @@ function ImageUpload() {
     const id = crypto.randomUUID();
     console.log("[Select] Generated record id:", id);
     setRecordId(id);
+    setSelectedFile(file);
 
     const imageUrl = URL.createObjectURL(file);
     setPreviewImage(imageUrl);
@@ -112,7 +99,11 @@ function ImageUpload() {
   };
 
   const clearImage = () => {
+    if (previewImage) {
+      URL.revokeObjectURL(previewImage);
+    }
     setPreviewImage(null);
+    setSelectedFile(null);
     setUploadedUrl(null);
     setRecordId(null);
   };
@@ -146,14 +137,14 @@ function ImageUpload() {
     return new Promise((resolve, reject) => {
       const start = Date.now();
       const check = () => {
-        if (typeof window !== "undefined" && window.puter) {
+        if (typeof window !== "undefined" && window.puter?.ai) {
           console.log("[Puter] window.puter is ready");
           resolve();
         } else if (Date.now() - start > timeoutMs) {
           reject(
             new Error(
-              "Puter.js failed to load. Please refresh the page and try again."
-            )
+              "Puter.js failed to load. Please refresh the page and try again.",
+            ),
           );
         } else {
           setTimeout(check, 200);
@@ -163,70 +154,52 @@ function ImageUpload() {
     });
   };
 
-  const extractContent = (response: any): string => {
-    if (typeof response === "string") return response;
-
-    if (Array.isArray(response)) {
-      return response
-        .map((item) => extractContent(item))
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    if (typeof response?.message?.content === "string") {
-      return response.message.content;
-    }
-
-    if (Array.isArray(response?.message?.content)) {
-      return response.message.content
-        .map((item: any) => item?.text || item?.content || "")
-        .join("\n");
-    }
-
-    if (typeof response?.text === "string") return response.text;
-    if (typeof response?.content === "string") return response.content;
-
-    console.warn("[Puter] Unrecognized response shape:", response);
-    return JSON.stringify(response);
-  };
-
   const generateWireframeCode = async (
+    imageFile: File | null,
     imageUrl: string,
     desc: string,
     selectedModel: string,
   ) => {
     await waitForPuter();
 
-    const primaryModel =
-      selectedModel && supportedPuterModels.has(selectedModel)
+    const primaryModel = await resolvePuterModelId(
+      window.puter,
+      selectedModel && SUPPORTED_VISION_MODEL_IDS.has(selectedModel)
         ? selectedModel
-        : "gemini-3.1-flash-lite";
+        : DEFAULT_VISION_MODEL,
+    );
+    const polishModel = await resolvePuterModelId(
+      window.puter,
+      STAGE2_MODEL,
+    );
 
-    const polishModel =
-      primaryModel === "claude-sonnet-4-5"
-        ? "gemini-3.1-flash-lite"
-        : "claude-sonnet-4-5";
+    const imageInput = imageFile ?? imageUrl;
 
-    console.log("[Puter] Using primary model:", primaryModel);
-    console.log("[Puter] Using polish model:", polishModel);
+    console.log("[Puter] Stage 1 model:", primaryModel);
+    console.log("[Puter] Stage 2 model:", polishModel);
+    console.log(
+      "[Puter] Stage 1 image input:",
+      imageFile ? `File(${imageFile.name}, ${imageFile.type})` : imageUrl,
+    );
 
     const structurePrompt = `You are an expert frontend developer. Analyze this wireframe image and convert it into clean React + Tailwind CSS code. Focus on accurate layout, spacing, and component structure. Context: "${desc}". Return ONLY code, no explanations.`;
 
     let structureResponse;
     try {
-      structureResponse = await window.puter.ai.chat(structurePrompt, imageUrl, {
-        model: primaryModel,
-      });
-    } catch (err: any) {
-      const message =
-        err?.message || err?.error || JSON.stringify(err, Object.getOwnPropertyNames(err || {}));
-      console.error("[Puter] Stage 1 failed:", message);
+      structureResponse = await window.puter.ai.chat(
+        structurePrompt,
+        imageInput,
+        { model: primaryModel },
+      );
+    } catch (err: unknown) {
+      const message = formatPuterError(err);
+      console.error("[Puter] Stage 1 failed:", message, err);
       throw new Error(
-        `AI failed to analyze the image with ${primaryModel}. Please try another model or image.`,
+        `AI failed to analyze the image with "${primaryModel}". ${message}`,
       );
     }
 
-    const structureCode = extractContent(structureResponse);
+    const structureCode = extractPuterContent(structureResponse);
     console.log("[Puter] Stage 1 extracted code length:", structureCode?.length);
 
     const polishPrompt = `Take this React + Tailwind code and enhance it into a high-fidelity, production-ready design. Add proper spacing, modern color palette, hover states, shadows, and polished typography while keeping the same layout structure:\n\n${structureCode}`;
@@ -236,13 +209,14 @@ function ImageUpload() {
       polishedResponse = await window.puter.ai.chat(polishPrompt, {
         model: polishModel,
       });
-    } catch (err: any) {
-      console.error("[Puter] Stage 2 failed:", err);
+    } catch (err: unknown) {
+      const message = formatPuterError(err);
+      console.error("[Puter] Stage 2 failed:", message, err);
       console.warn("[Puter] Falling back to stage 1 output");
       return structureCode;
     }
 
-    const finalCode = extractContent(polishedResponse);
+    const finalCode = extractPuterContent(polishedResponse);
     console.log("[Puter] Final code length:", finalCode?.length);
 
     return finalCode;
@@ -251,7 +225,7 @@ function ImageUpload() {
   const handleConvertToCode = async () => {
     const missingFields: string[] = [];
 
-    if (!uploadedUrl) missingFields.push("image");
+    if (!uploadedUrl && !selectedFile) missingFields.push("image");
     if (!model) missingFields.push("AI model");
     if (!description.trim()) missingFields.push("description");
 
@@ -274,18 +248,21 @@ function ImageUpload() {
 
     setError(null);
     let success = false;
+    let persistedId = recordId;
 
     try {
       setLoading(true);
 
       console.log("[Convert] Step 1: saving record...");
-      await saveRecord(uploadedUrl!, recordId);
+      const savedRecord = await saveRecord(uploadedUrl!, recordId);
+      persistedId = savedRecord?.id ?? recordId;
 
       console.log("[Convert] Step 2: generating code via Puter...");
       const code = await generateWireframeCode(
+        selectedFile,
         uploadedUrl!,
         description,
-        model || "gemini-3.1-flash-lite",
+        model || DEFAULT_VISION_MODEL,
       );
 
       if (!code || code.trim().length === 0) {
@@ -297,7 +274,7 @@ function ImageUpload() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: recordId,
+          id: persistedId,
           generatedCode: code,
           status: "completed",
         }),
@@ -317,14 +294,14 @@ function ImageUpload() {
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong while generating your code. Please try again."
+          : "Something went wrong while generating your code. Please try again.",
       );
     } finally {
       setLoading(false);
     }
 
-    if (success && recordId) {
-      router.push(`/view-code/${recordId}`);
+    if (success && persistedId) {
+      router.push(`/view-code/${persistedId}`);
     }
   };
 
@@ -387,7 +364,7 @@ function ImageUpload() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {AIModelList.map((m) => (
+                {VISION_MODELS.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
                     <div className="flex items-center gap-4">
                       <Image

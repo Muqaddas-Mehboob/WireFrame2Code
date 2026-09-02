@@ -226,12 +226,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-declare global {
-  interface Window {
-    puter: any;
-  }
-}
-
 function ImageUpload() {
   const router = useRouter();
 

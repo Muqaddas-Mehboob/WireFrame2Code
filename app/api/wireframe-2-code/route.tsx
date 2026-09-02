@@ -5,7 +5,7 @@ import { wireframeRecords } from "@/configs/schema";
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageUrl, userDescription, aiModel } = await req.json();
+    const { id, imageUrl, userDescription, aiModel } = await req.json();
 
     if (!imageUrl) {
       return NextResponse.json(
@@ -14,18 +14,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Upsert instead of a plain insert. If the client retries with the same
+    // `id` (e.g. the user hits "Convert to Code" again after an AI failure,
+    // without re-uploading a new image), the recordId in React state is
+    // unchanged, so a plain insert would violate the primary key unique
+    // constraint and throw a 500. onConflictDoUpdate makes this idempotent:
+    // a retry just refreshes the row instead of erroring.
     const [record] = await db
       .insert(wireframeRecords)
       .values({
+        ...(id ? { id } : {}),
         imageUrl,
         userDescription,
         aiModel,
+      })
+      .onConflictDoUpdate({
+        target: wireframeRecords.id,
+        set: {
+          imageUrl,
+          userDescription,
+          aiModel,
+        },
       })
       .returning();
 
     return NextResponse.json(record);
   } catch (err) {
-    console.error(err);
+    console.error("[wireframe-2-code POST]", err);
     return NextResponse.json(
       { error: "Failed to save record" },
       { status: 500 }
