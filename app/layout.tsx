@@ -30,13 +30,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className = {outfit.className}>
-        <Provider attribute="class"
+      <head>
+        <script src="https://js.puter.com/v2/" async></script>
+      </head>
+      <body className={outfit.className}>
+        <Provider
+          attribute="class"
           defaultTheme="dark"
           enableSystem
-          disableTransitionOnChange>
+          disableTransitionOnChange
+        >
           {children}
-
         </Provider>
       </body>
     </html>

@@ -11,22 +11,24 @@ export default {
         framework.
       `,
     AIModelList : [
-    { name: "Google Gemini", 
-      value: "google-gemini", 
+    {
+      name: "Gemini 3.1 Flash Lite",
+      value: "gemini-3.1-flash-lite",
       icon: "/gemini.jpg",
-      modelName: "google/gemma-4-31b-it:free"
+      modelName: "gemini-3.1-flash-lite",
     },
-    { 
-      name: "Llama By Meta", 
-      value: "llama-meta", 
-      icon: "/meta.jpg", 
-      modelName: "google/gemma-4-31b-it:free" 
+    {
+      name: "Claude Sonnet 4.5",
+      value: "claude-sonnet-4-5",
+      icon: "/meta.jpg",
+      modelName: "claude-sonnet-4-5",
     },
-    { 
-      name: "Deepseek", 
-      value: "deepseek", 
-      icon: "/deepseek.jpg", 
-      modelName: "google/gemma-4-31b-it:free" },
+    {
+      name: "GPT-5.6 Luna",
+      value: "gpt-5.6-luna",
+      icon: "/deepseek.jpg",
+      modelName: "gpt-5.6-luna",
+    },
     // { 
     //   name: "Llama By Meta", 
     //   value: "llama-meta", 

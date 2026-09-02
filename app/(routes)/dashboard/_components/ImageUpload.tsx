@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CloudUpload, CodeXml, X, Loader2 } from "lucide-react";
 import Image from "next/image";
-import React, { ChangeEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import React, { ChangeEvent, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -16,36 +15,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+declare global {
+  interface Window {
+    puter: any;
+  }
+}
+
 function ImageUpload() {
+  const router = useRouter();
+
   const AIModelList = [
-    { name: "Google Gemini", 
-      value: "google-gemini", 
+    {
+      name: "Gemini 3.1 Flash Lite",
+      value: "gemini-3.1-flash-lite",
       icon: "/gemini.jpg",
-      modelName: "google/gemma-4-31b-it:free"
     },
-    { 
-      name: "Llama By Meta", 
-      value: "llama-meta", 
-      icon: "/meta.jpg", 
-      modelName: "google/gemma-4-31b-it:free" 
+    {
+      name: "Claude Sonnet 4.5",
+      value: "claude-sonnet-4-5",
+      icon: "/meta.jpg",
     },
-    { 
-      name: "Deepseek", 
-      value: "deepseek", 
-      icon: "/deepseek.jpg", 
-      modelName: "google/gemma-4-31b-it:free" },
-    // { 
-    //   name: "Llama By Meta", 
-    //   value: "llama-meta", 
-    //   icon: "/meta.jpg", 
-    //   modelName: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free" 
-    // },
-    // { 
-    //   name: "Deepseek", 
-    //   value: "deepseek", 
-    //   icon: "/deepseek.jpg", 
-    //   modelName: "cohere/north-mini-code:free" },
+    { name: "GPT-5.6 Luna", value: "gpt-5.6-luna", icon: "/deepseek.jpg" },
   ];
+
+  const supportedPuterModels = new Set([
+    "gemini-3.1-flash-lite",
+    "claude-sonnet-4-5",
+    "gpt-5.6-luna",
+  ]);
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
@@ -54,34 +51,44 @@ function ImageUpload() {
   const [description, setDescription] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [recordId, setRecordId] = useState<string | null>(null);
 
-  const uploadToCloudinary = async (file: File) => {
+  const uploadToCloudinary = async (file: File, id: string) => {
     setUploading(true);
     try {
+      console.log("[Upload] Starting Cloudinary upload for id:", id);
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append(
         "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!,
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
       );
+      formData.append("public_id", id);
 
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
         {
           method: "POST",
           body: formData,
-        },
+        }
       );
 
-      if (!res.ok) throw new Error("Upload failed");
-
       const data = await res.json();
+
+      if (!res.ok) {
+        console.error("[Upload] Cloudinary error response:", data);
+        throw new Error(data?.error?.message || "Upload failed");
+      }
+
+      console.log("[Upload] Success. secure_url:", data.secure_url);
       setUploadedUrl(data.secure_url);
       setError(null);
     } catch (err) {
-      console.error(err);
-      setError("Image upload failed. Please try again.");
+      console.error("[Upload] Failed:", err);
+      setError(
+        err instanceof Error ? err.message : "Image upload failed. Please try again."
+      );
     } finally {
       setUploading(false);
     }
@@ -89,34 +96,156 @@ function ImageUpload() {
 
   const onImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.warn("[Select] No file selected");
+      return;
+    }
+
+    const id = crypto.randomUUID();
+    console.log("[Select] Generated record id:", id);
+    setRecordId(id);
 
     const imageUrl = URL.createObjectURL(file);
     setPreviewImage(imageUrl);
 
-    uploadToCloudinary(file);
+    uploadToCloudinary(file, id);
   };
 
   const clearImage = () => {
     setPreviewImage(null);
     setUploadedUrl(null);
+    setRecordId(null);
   };
 
-  const saveRecord = async (imageUrl: string) => {
+  const saveRecord = async (imageUrl: string, id: string) => {
+    console.log("[SaveRecord] Saving with id:", id);
+
     const res = await fetch("/api/wireframe-2-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id,
         imageUrl,
         userDescription: description,
         aiModel: model,
       }),
     });
 
-    if (!res.ok) throw new Error("Failed to save record");
+    const data = await res.json();
 
-    const record = await res.json();
-    return record; // includes record.id, needed for the generate-code step
+    if (!res.ok) {
+      console.error("[SaveRecord] Failed:", res.status, data);
+      throw new Error(data?.error || "Failed to save record");
+    }
+
+    console.log("[SaveRecord] Success:", data);
+    return data;
+  };
+
+  const waitForPuter = (timeoutMs = 8000): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        if (typeof window !== "undefined" && window.puter) {
+          console.log("[Puter] window.puter is ready");
+          resolve();
+        } else if (Date.now() - start > timeoutMs) {
+          reject(
+            new Error(
+              "Puter.js failed to load. Please refresh the page and try again."
+            )
+          );
+        } else {
+          setTimeout(check, 200);
+        }
+      };
+      check();
+    });
+  };
+
+  const extractContent = (response: any): string => {
+    if (typeof response === "string") return response;
+
+    if (Array.isArray(response)) {
+      return response
+        .map((item) => extractContent(item))
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    if (typeof response?.message?.content === "string") {
+      return response.message.content;
+    }
+
+    if (Array.isArray(response?.message?.content)) {
+      return response.message.content
+        .map((item: any) => item?.text || item?.content || "")
+        .join("\n");
+    }
+
+    if (typeof response?.text === "string") return response.text;
+    if (typeof response?.content === "string") return response.content;
+
+    console.warn("[Puter] Unrecognized response shape:", response);
+    return JSON.stringify(response);
+  };
+
+  const generateWireframeCode = async (
+    imageUrl: string,
+    desc: string,
+    selectedModel: string,
+  ) => {
+    await waitForPuter();
+
+    const primaryModel =
+      selectedModel && supportedPuterModels.has(selectedModel)
+        ? selectedModel
+        : "gemini-3.1-flash-lite";
+
+    const polishModel =
+      primaryModel === "claude-sonnet-4-5"
+        ? "gemini-3.1-flash-lite"
+        : "claude-sonnet-4-5";
+
+    console.log("[Puter] Using primary model:", primaryModel);
+    console.log("[Puter] Using polish model:", polishModel);
+
+    const structurePrompt = `You are an expert frontend developer. Analyze this wireframe image and convert it into clean React + Tailwind CSS code. Focus on accurate layout, spacing, and component structure. Context: "${desc}". Return ONLY code, no explanations.`;
+
+    let structureResponse;
+    try {
+      structureResponse = await window.puter.ai.chat(structurePrompt, imageUrl, {
+        model: primaryModel,
+      });
+    } catch (err: any) {
+      const message =
+        err?.message || err?.error || JSON.stringify(err, Object.getOwnPropertyNames(err || {}));
+      console.error("[Puter] Stage 1 failed:", message);
+      throw new Error(
+        `AI failed to analyze the image with ${primaryModel}. Please try another model or image.`,
+      );
+    }
+
+    const structureCode = extractContent(structureResponse);
+    console.log("[Puter] Stage 1 extracted code length:", structureCode?.length);
+
+    const polishPrompt = `Take this React + Tailwind code and enhance it into a high-fidelity, production-ready design. Add proper spacing, modern color palette, hover states, shadows, and polished typography while keeping the same layout structure:\n\n${structureCode}`;
+
+    let polishedResponse;
+    try {
+      polishedResponse = await window.puter.ai.chat(polishPrompt, {
+        model: polishModel,
+      });
+    } catch (err: any) {
+      console.error("[Puter] Stage 2 failed:", err);
+      console.warn("[Puter] Falling back to stage 1 output");
+      return structureCode;
+    }
+
+    const finalCode = extractContent(polishedResponse);
+    console.log("[Puter] Final code length:", finalCode?.length);
+
+    return finalCode;
   };
 
   const handleConvertToCode = async () => {
@@ -138,27 +267,64 @@ function ImageUpload() {
       return;
     }
 
-    setError(null);
+    if (!recordId) {
+      setError("Something went wrong — image ID missing. Please re-upload.");
+      return;
+    }
 
-    let record: { id: string } | null = null;
+    setError(null);
+    let success = false;
 
     try {
       setLoading(true);
 
-      record = await saveRecord(uploadedUrl!);
-      console.log("Record saved:", record);
+      console.log("[Convert] Step 1: saving record...");
+      await saveRecord(uploadedUrl!, recordId);
+
+      console.log("[Convert] Step 2: generating code via Puter...");
+      const code = await generateWireframeCode(
+        uploadedUrl!,
+        description,
+        model || "gemini-3.1-flash-lite",
+      );
+
+      if (!code || code.trim().length === 0) {
+        throw new Error("AI returned empty code. Please try again.");
+      }
+
+      console.log("[Convert] Step 3: saving generated code...");
+      const patchRes = await fetch("/api/wireframe-2-code", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: recordId,
+          generatedCode: code,
+          status: "completed",
+        }),
+      });
+
+      const patchData = await patchRes.json();
+
+      if (!patchRes.ok) {
+        console.error("[Convert] PATCH failed:", patchRes.status, patchData);
+        throw new Error(patchData?.error || "Failed to save generated code");
+      }
+
+      console.log("[Convert] All steps completed successfully");
+      success = true;
     } catch (err) {
-      console.error(err);
+      console.error("[Convert] Error:", err);
       setError(
-        "Something went wrong while saving your request. Please try again.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while generating your code. Please try again."
       );
     } finally {
       setLoading(false);
     }
 
-    // only navigate if the save actually succeeded
-    if (record) {
-      router.push(`/view-code/${record.id}`);
+    if (success && recordId) {
+      router.push(`/view-code/${recordId}`);
     }
   };
 
@@ -221,17 +387,17 @@ function ImageUpload() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {AIModelList.map((model) => (
-                  <SelectItem key={model.value} value={model.value}>
+                {AIModelList.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
                     <div className="flex items-center gap-4">
                       <Image
-                        src={model.icon}
-                        alt={model.name}
+                        src={m.icon}
+                        alt={m.name}
                         width={25}
                         height={25}
                         className="rounded-sm"
                       />
-                      <h2>{model.name}</h2>
+                      <h2>{m.name}</h2>
                     </div>
                   </SelectItem>
                 ))}

@@ -33,6 +33,37 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, generatedCode, status } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "id is required" },
+        { status: 400 },
+      );
+    }
+
+    const [record] = await db
+      .update(wireframeRecords)
+      .set({ generatedCode, status })
+      .where(eq(wireframeRecords.id, id))
+      .returning();
+
+    if (!record) {
+      return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(record);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { error: "Failed to update record" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const reqUrl = new URL(req.url);
